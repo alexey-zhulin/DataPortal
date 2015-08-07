@@ -13,6 +13,67 @@ column_name$c text;
 data_table_constraint_name$c text;
 count_rec$i integer;
 begin
+    -- Создадим словарь уровней динамики
+    table_name$c := schema_name$c||'_dynamic_levels';
+    --
+    select count(*)
+    into count_rec$i
+    from information_schema.tables
+    where table_schema = schema_name$c
+          and table_name = table_name$c;
+    -- Удалим таблицу
+    if count_rec$i > 0 then
+        query_text$c := 'drop table '||schema_name$c||'.'||table_name$c||' cascade;';
+        if show_debug$b then raise notice '%', query_text$c; end if;
+        if exec_scripts$b then execute query_text$c; end if;
+    end if;
+    -- Создадим таблицу
+    query_text$c := 'create table '||schema_name$c||'.'||table_name$c||' (
+        level_id             INT4                 primary key,
+        level_name           VARCHAR(100)         not null,
+        sort_order           INT4                 not null
+    );';
+    if show_debug$b then raise notice '%', query_text$c; end if;
+    if exec_scripts$b then execute query_text$c; end if;
+    -- Заполним таблицу
+    query_text$c := '
+  insert into '||schema_name$c||'.'||table_name$c||'
+  (level_id, level_name, sort_order)
+  values
+  (1, ''Годы'', 1);
+  ----
+  insert into '||schema_name$c||'.'||table_name$c||'
+  (level_id, level_name, sort_order)
+  values
+  (2, ''Полугодия'', 2);
+  ----
+  insert into '||schema_name$c||'.'||table_name$c||'
+  (level_id, level_name, sort_order)
+  values
+  (3, ''Кварталы'', 3);
+  ----
+  insert into '||schema_name$c||'.'||table_name$c||'
+  (level_id, level_name, sort_order)
+  values
+  (4, ''Месяцы'', 4);
+  ----
+  insert into '||schema_name$c||'.'||table_name$c||'
+  (level_id, level_name, sort_order)
+  values
+  (7, ''Недели'', 5);
+  ----
+  insert into '||schema_name$c||'.'||table_name$c||'
+  (level_id, level_name, sort_order)
+  values
+  (5, ''Дни'', 6);
+  ----
+    ';
+    if show_debug$b then raise notice '%', query_text$c; end if;
+    if exec_scripts$b then execute query_text$c; end if;
+    -- Раздадим grant
+    query_text$c := 'GRANT SELECT ON TABLE '||schema_name$c||'.'||table_name$c||' TO '||user_for_grant$c||';';
+    if show_debug$b then raise notice '%', query_text$c; end if;
+    if exec_scripts$b then execute query_text$c; end if;
     -- Создадим таблицу иерархии
     table_name$c := schema_name$c||'_time_hierarchy';
     --
@@ -32,6 +93,7 @@ begin
       time_id serial primary key,
       time_value timestamp(3) without time zone NOT NULL,
       parent_time_id integer,
+      level_id integer NOT NULL,
       time_name character varying(100)
     );';
     if show_debug$b then raise notice '%', query_text$c; end if;
@@ -40,6 +102,16 @@ begin
     query_text$c := 'alter table '||schema_name$c||'.'||table_name$c||' add constraint '||table_name$c||'_time_id_parent_time_id foreign key (parent_time_id)
       references '||schema_name$c||'.'||table_name$c||' (time_id)
       on delete restrict on update restrict;';
+    if show_debug$b then raise notice '%', query_text$c; end if;
+    if exec_scripts$b then execute query_text$c; end if;
+    ---
+    query_text$c := 'alter table '||schema_name$c||'.'||table_name$c||' add constraint '||table_name$c||'_level_id foreign key (level_id)
+      references '||schema_name$c||'.'||schema_name$c||'_dynamic_levels (level_id)
+      on delete restrict on update restrict;';
+    if show_debug$b then raise notice '%', query_text$c; end if;
+    if exec_scripts$b then execute query_text$c; end if;
+    -- Добавим уникальный индекс на дату и уровень динамики
+    query_text$c := 'create unique index i_'||table_name$c||'_level_date on '||schema_name$c||'.'||table_name$c||' (level_id, time_value);';
     if show_debug$b then raise notice '%', query_text$c; end if;
     if exec_scripts$b then execute query_text$c; end if;
     -- Раздадим grant
@@ -67,6 +139,10 @@ begin
       parent_time_id integer NOT NULL,
       distance integer NOT NULL
     );';
+    if show_debug$b then raise notice '%', query_text$c; end if;
+    if exec_scripts$b then execute query_text$c; end if;
+    -- Добавим уникальный индекс
+    query_text$c := 'create unique index i_'||table_name$c||'_parent_time_time on '||schema_name$c||'.'||table_name$c||' (parent_time_id, time_id);';
     if show_debug$b then raise notice '%', query_text$c; end if;
     if exec_scripts$b then execute query_text$c; end if;
     -- Раздадим grant
