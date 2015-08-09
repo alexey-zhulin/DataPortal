@@ -22,6 +22,7 @@ begin
         select *
         from metadata.md_dimensions
         where source_id = rec.source_id
+              and data_type_id = 1 -- Словарь
         loop
             select count(*)
             into count_rec$i

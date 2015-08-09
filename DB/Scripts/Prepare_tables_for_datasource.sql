@@ -7,7 +7,8 @@ begin
     for rec in 
         select *
         from metadata.md_datasources
-        where source_id = 560 --"aeb_producers"
+        --where source_id = 560 --"aeb_producers"
+        where source_id = 564 --"cbr"
     loop
         
         -- 1. Создадим иерархическую таблицу с датами и closure table
@@ -37,12 +38,12 @@ begin
                                                                        , false --show_debug$b boolean -- показывать ли отладочные сообщения
                                                                        , true --exec_scripts$b boolean -- выполнять ли DDL скрипты
                                                                        );
+            -- Заполним closure table для справочника
             execute prepare_source_fill_closure_table_dimensions(rec.schema --schema_name$c varchar(100)
                                                                        , rec_d.table_name -- varchar(100) -- наименование таблицы словаря измерения
                                                                        , false --show_debug$b boolean -- показывать ли отладочные сообщения
                                                                        , true --exec_scripts$b boolean -- выполнять ли DDL скрипты
                                                                        );
-            -- Заполним closure table для справочника
         end loop;
     end loop;
 end
