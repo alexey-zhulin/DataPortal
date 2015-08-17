@@ -12,6 +12,7 @@ table_name$c text;
 column_name$c text;
 data_table_constraint_name$c text;
 count_rec$i integer;
+rec record;
 begin
     -- Создадим словарь уровней динамики
     table_name$c := schema_name$c||'_dynamic_levels';
@@ -32,44 +33,30 @@ begin
         level_id             INT4                 primary key,
         level_name           VARCHAR(100)         not null,
         sort_order           INT4                 not null
-    );';
+        );';
     if show_debug$b then raise notice '%', query_text$c; end if;
     if exec_scripts$b then execute query_text$c; end if;
     -- Заполним таблицу
-    query_text$c := '
-  insert into '||schema_name$c||'.'||table_name$c||'
-  (level_id, level_name, sort_order)
-  values
-  (1, ''Годы'', 1);
-  ----
-  insert into '||schema_name$c||'.'||table_name$c||'
-  (level_id, level_name, sort_order)
-  values
-  (2, ''Полугодия'', 2);
-  ----
-  insert into '||schema_name$c||'.'||table_name$c||'
-  (level_id, level_name, sort_order)
-  values
-  (3, ''Кварталы'', 3);
-  ----
-  insert into '||schema_name$c||'.'||table_name$c||'
-  (level_id, level_name, sort_order)
-  values
-  (4, ''Месяцы'', 4);
-  ----
-  insert into '||schema_name$c||'.'||table_name$c||'
-  (level_id, level_name, sort_order)
-  values
-  (7, ''Недели'', 5);
-  ----
-  insert into '||schema_name$c||'.'||table_name$c||'
-  (level_id, level_name, sort_order)
-  values
-  (5, ''Дни'', 6);
-  ----
-    ';
-    if show_debug$b then raise notice '%', query_text$c; end if;
-    if exec_scripts$b then execute query_text$c; end if;
+    for rec in
+    execute '
+        select *
+        from metadata.md_dynamic_levels
+        where exists (select 1
+                         from '||schema_name$c||'.'||data_table_name$c||'
+                         where dl = level_id
+                         )
+    '
+    loop
+        query_text$c := '
+            insert into '||schema_name$c||'.'||table_name$c||'
+            (level_id, level_name, sort_order)
+            values
+            ($1, $2, $3);
+        ';
+            ----
+        if show_debug$b then raise notice '%', query_text$c; end if;
+        if exec_scripts$b then execute query_text$c using rec.level_id, rec.level_name, rec.sort_order; end if;
+    end loop;
     -- Раздадим grant
     query_text$c := 'GRANT SELECT ON TABLE '||schema_name$c||'.'||table_name$c||' TO '||user_for_grant$c||';';
     if show_debug$b then raise notice '%', query_text$c; end if;

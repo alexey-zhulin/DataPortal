@@ -54,6 +54,15 @@ from '||schema_name$c||'.'||table_name$c||';
     if show_debug$b then raise notice '%', query_text$c; end if;
     if exec_scripts$b then execute query_text$c; end if;
     -- Заполним иерархию в измерениии по времени
+    query_text$c := '
+update '||schema_name$c||'.'||table_name$c||' th
+set parent_time_id = prepare_source_find_parent_for_table_time_dimensions('''||schema_name$c||''' --schema_name$c varchar(100) -- схема
+                                                                               , th.time_value --date_value$d timestamp(3) without time zone -- дата
+                                                                               , th.level_id --level_id$i integer -- уровень динамики
+                                                                               )
+    ';
+    if show_debug$b then raise notice '%', query_text$c; end if;
+    if exec_scripts$b then execute query_text$c; end if;
 end;
 $$ language plpgsql;
 
