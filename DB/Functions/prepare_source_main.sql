@@ -33,6 +33,7 @@ begin
             select *
             from metadata.md_dimensions
             where source_id = rec.source_id
+                  and data_type_id = 1 -- Словарь
         loop
             -- Создадим closure table для справочника
             execute prepare_source_create_closure_table_dimensions(rec.schema --schema_name$c varchar(100)

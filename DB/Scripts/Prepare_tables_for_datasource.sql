@@ -6,6 +6,7 @@ begin
     for rec in 
         select *
         from metadata.md_datasources
+        where dont_use = 0
         --where source_id = 560 --"aeb_producers"
         --where source_id = 564 --"cbr"
         --where source_id = 561 --"aijk_data"

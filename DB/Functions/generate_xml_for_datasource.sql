@@ -1,4 +1,4 @@
-set schema 'metadata';
+п»їset schema 'metadata';
 CREATE OR REPLACE FUNCTION generate_xml_for_datasource(source_name$c varchar(100)
                                                         ) RETURNS text AS $$
 DECLARE
@@ -12,7 +12,7 @@ BEGIN
     from md_datasources
     where source_name = source_name$c
     loop
-        -- Перед формированием xml проверим, есть ли в базе указанная таблица с данными
+        -- РџРµСЂРµРґ С„РѕСЂРјРёСЂРѕРІР°РЅРёРµРј xml РїСЂРѕРІРµСЂРёРј, РµСЃС‚СЊ Р»Рё РІ Р±Р°Р·Рµ СѓРєР°Р·Р°РЅРЅР°СЏ С‚Р°Р±Р»РёС†Р° СЃ РґР°РЅРЅС‹РјРё
         select count(*)
         into count_rec$i
         from pg_catalog.pg_tables t
@@ -23,31 +23,32 @@ BEGIN
             return null;
         end if;
         
-        xml_str$c := '<Schema name="'||source_name$c||'" description="'||md_datasources$r.connection_string||'">';
+        xml_str$c := '<Schema name="'||md_datasources$r.description||'" description="'||md_datasources$r.connection_string||'">';
         xml_str$c := xml_str$c||'<Cube name="'||source_name$c||'">';
         
-        -- Таблица с данными
+        -- РўР°Р±Р»РёС†Р° СЃ РґР°РЅРЅС‹РјРё
         xml_str$c := xml_str$c||'<Table name="'||md_datasources$r.table_name||'" schema="'||md_datasources$r.schema||'"/>';
         
-        -- Измерение по времени
-        xml_str$c := xml_str$c||'<Dimension foreignKey="dt" name="dt" type="TimeDimension">';
-            xml_str$c := xml_str$c||'<Hierarchy allMemberName="All" hasAll="true" name="Hierarchy" primaryKey="dt" visible="true">';
-                xml_str$c := xml_str$c||'<View alias="dt_view">';
-                xml_str$c := xml_str$c||'<SQL dialect="generic">select distinct "dt",date_part(''year'', "dt")::integer AS year, date_part(''month'', "dt")::integer AS month, date_part(''day'', "dt")::integer AS day from "'||md_datasources$r.schema||'"."'||md_datasources$r.table_name||'"</SQL>';
-                xml_str$c := xml_str$c||'</View>';
-                xml_str$c := xml_str$c||'<Level captionColumn="year" column="year" hideMemberIf="Never" levelType="TimeYears" name="Years" type="Integer" uniqueMembers="false"/>';
-                xml_str$c := xml_str$c||'<Level column="month" formatter="capsidea.MemberMonthFormatter" hideMemberIf="Never" levelType="TimeMonths" name="Month" type="Integer" uniqueMembers="false"/>';
-                xml_str$c := xml_str$c||'<Level column="day" formatter="capsidea.MemberDayFormatter" hideMemberIf="Never" levelType="TimeDays" name="Days" type="Integer" uniqueMembers="false"/>';
+        -- РР·РјРµСЂРµРЅРёРµ РїРѕ РІСЂРµРјРµРЅРё
+        xml_str$c := xml_str$c||'<Dimension foreignKey="time_id" name="Р’СЂРµРјСЏ">';
+            xml_str$c := xml_str$c||'<Hierarchy allMemberName="All" hasAll="true" name="time_name" primaryKey="time_id" visible="true">';
+                xml_str$c := xml_str$c||'<Table name="'||md_datasources$r.schema||'_time_hierarchy" schema="'||md_datasources$r.schema||'"/>';
+                xml_str$c := xml_str$c||'<Level column="time_id" nameColumn="time_name" parentColumn="parent_time_id" hideMemberIf="Never" levelType="Regular" name="Level" type="Integer" uniqueMembers="true">';
+                xml_str$c := xml_str$c||'<Closure parentColumn="parent_time_id" childColumn="time_id">';
+                    xml_str$c := xml_str$c||'<Table name="'||md_datasources$r.schema||'_time_hierarchy_closure" schema="'||md_datasources$r.schema||'"/>';
+                xml_str$c := xml_str$c||'</Closure>';
+                xml_str$c := xml_str$c||'</Level>';
             xml_str$c := xml_str$c||'</Hierarchy>';
         xml_str$c := xml_str$c||'</Dimension>';
         
-        -- Соберем дополнительные измерения
+        -- РЎРѕР±РµСЂРµРј РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ РёР·РјРµСЂРµРЅРёСЏ
         for md_dimensions$r in 
         select *
         from md_dimensions
         where source_id = md_datasources$r.source_id
+              and data_type_id = 1 -- РЎР»РѕРІР°СЂСЊ
         loop
-            -- Перед формированием измерения проверим, что такая таблица существует
+            -- РџРµСЂРµРґ С„РѕСЂРјРёСЂРѕРІР°РЅРёРµРј РёР·РјРµСЂРµРЅРёСЏ РїСЂРѕРІРµСЂРёРј, С‡С‚Рѕ С‚Р°РєР°СЏ С‚Р°Р±Р»РёС†Р° СЃСѓС‰РµСЃС‚РІСѓРµС‚
             select count(*)
             into count_rec$i
             from pg_catalog.pg_tables t
@@ -58,18 +59,22 @@ BEGIN
                 continue;
             end if;
             
-            -- Сформируем измерение
+            -- РЎС„РѕСЂРјРёСЂСѓРµРј РёР·РјРµСЂРµРЅРёРµ
             xml_str$c := xml_str$c||'<Dimension foreignKey="'||md_dimensions$r.source_column||'" name="'||md_dimensions$r.description||'">';
                 xml_str$c := xml_str$c||'<Hierarchy allMemberName="All" hasAll="true" name="'||md_dimensions$r.name_column||'" primaryKey="'||md_dimensions$r.key_column||'" visible="true">';
                     xml_str$c := xml_str$c||'<Table name="'||md_dimensions$r.table_name||'" schema="'||md_dimensions$r.schema||'"/>';
-                    xml_str$c := xml_str$c||'<Level column="'||md_dimensions$r.key_column||'" nameColumn="'||md_dimensions$r.name_column||'" parentColumn="'||md_dimensions$r.parent_column||'" hideMemberIf="Never" levelType="Regular" name="Level" type="Integer" uniqueMembers="true"/>';
+                    xml_str$c := xml_str$c||'<Level column="'||md_dimensions$r.key_column||'" nameColumn="'||md_dimensions$r.name_column||'" parentColumn="'||md_dimensions$r.parent_column||'" hideMemberIf="Never" levelType="Regular" name="Level" type="Integer" uniqueMembers="true">';
+                    xml_str$c := xml_str$c||'<Closure parentColumn="parent_key" childColumn="key">';
+                        xml_str$c := xml_str$c||'<Table name="'||md_dimensions$r.table_name||'_closure" schema="'||md_dimensions$r.schema||'"/>';
+                    xml_str$c := xml_str$c||'</Closure>';
+                    xml_str$c := xml_str$c||'</Level>';
                 xml_str$c := xml_str$c||'</Hierarchy>';
             xml_str$c := xml_str$c||'</Dimension>';
             
         end loop;
        
-        -- Колонка с данными
-        xml_str$c := xml_str$c||'<Measure aggregator="sum" column="vl" name="'||md_datasources$r.value_column||'" visible="true"/>';
+        -- РљРѕР»РѕРЅРєР° СЃ РґР°РЅРЅС‹РјРё
+        xml_str$c := xml_str$c||'<Measure aggregator="sum" column="'||md_datasources$r.value_column||'" name="Р—РЅР°С‡РµРЅРёРµ" visible="true"/>';
         xml_str$c := xml_str$c||'</Cube>';
         xml_str$c := xml_str$c||'</Schema>';
     end loop;
